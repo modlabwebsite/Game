@@ -94,7 +94,7 @@ button.go{background:rgba(127,214,255,.85);border-color:transparent;color:#06122
 </div></div>
 
 <div id="help">Move: W A S D or arrows<br>Look: drag mouse / Q E<br>Chat: Enter</div>
-<div id="hud"><div id="acts"><button id="bLove">💖 I love you</button><button id="bProp">💍 Propose</button></div><div id="log"></div><input id="chatIn" placeholder="Press Enter to chat…" maxlength="120" autocomplete="off"></div>
+<div id="hud"><div id="acts"><button id="bLove">💖 I love you</button><button id="bProp">💕 Like you so much</button><button id="bDance">💃 Dance</button><button id="bWave">👋 Wave</button></div><div id="log"></div><input id="chatIn" placeholder="Press Enter to chat…" maxlength="120" autocomplete="off"></div>
 <div id="gm"></div><div id="ask"></div><button id="prompt"></button>
 <div id="joy"><div id="knob"></div></div>
 
@@ -282,8 +282,8 @@ function makeChar(r){
   g.userData={armL:limb(.12,.8,skin,-.54,1.95),armR:limb(.12,.8,skin,.54,1.95),
               legL:limb(.15,.95,girl?skin:pants,-.2,.95),legR:limb(.15,.95,girl?skin:pants,.2,.95)};
   const ring=new THREE.Group();ring.position.set(0,-.95,0);
-  ring.add(new THREE.Mesh(new THREE.TorusGeometry(.1,.03,8,16),mat(0xffd36b,.2,.9)));
-  const gem=new THREE.Mesh(new THREE.OctahedronGeometry(.07),new THREE.MeshBasicMaterial({color:0xbff4ff}));gem.position.y=.12;ring.add(gem);
+  {const b=new THREE.Mesh(new THREE.SphereGeometry(.12,12,10),mat(0xe0245e,.5));b.position.y=-.15;ring.add(b);}
+  {const st=new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.55,6),mat(0x2f8f4e));st.position.y=.12;ring.add(st);}
   ring.visible=false;g.userData.armR.add(ring);g.userData.ring=ring;
   const tag=labelSprite(NAMES[r],girl?'#ff8fc2':'#7fb2ff');tag.position.y=3.35;g.add(tag);g.userData.tag=tag;
   return g;
@@ -296,6 +296,9 @@ function say(ch,text){
 function walkAnim(ch,moving,t){
   const u=ch.userData,s=moving?Math.sin(t*9)*.8:0;
   if(u.ring)u.ring.visible=!!u.kneel;
+  u.armL.rotation.z=u.armR.rotation.z=0;
+  if(u.emote==='dance'){const w=Math.sin(t*6);u.armL.rotation.x=-2.6+w*.4;u.armR.rotation.x=-2.6-w*.4;u.armL.rotation.z=-.5;u.armR.rotation.z=.5;u.legL.rotation.x=w*.5;u.legR.rotation.x=-w*.5;return;}
+  if(u.emote==='wave'){u.armR.rotation.x=-2.8;u.armR.rotation.z=.35+Math.sin(t*10)*.35;u.armL.rotation.x=0;u.legL.rotation.x=u.legR.rotation.x=0;return;}
   if(u.kneel){u.legR.rotation.x=-1.5;u.legL.rotation.x=1.15;u.armR.rotation.x=-1.6;u.armL.rotation.x=.2;return;}
   u.legL.rotation.x=s;u.legR.rotation.x=-s;u.armL.rotation.x=-s;u.armR.rotation.x=s;
 }
@@ -455,6 +458,7 @@ function loop(ms){
   const s=Math.sin(camYaw),c=Math.cos(camYaw);
   let dx=-s*f+c*r,dz=-c*f-s*r;
   moving=!me.userData.kneel&&Math.hypot(dx,dz)>.15;
+  if(moving&&me.userData.emote)me.userData.emote=null;
   if(moving){
     const l=Math.hypot(dx,dz),sp=Math.min(1,l);dx/=l;dz/=l;
     pos.x+=dx*7.5*sp*dt;pos.z+=dz*7.5*sp*dt;
@@ -466,16 +470,16 @@ function loop(ms){
     const a=pos.x-(w.x1-R),b=(w.x2+R)-pos.x,c=pos.z-(w.z1-R),d=(w.z2+R)-pos.z,q=Math.min(a,b,c,d);
     if(q===a)pos.x=w.x1-R;else if(q===b)pos.x=w.x2+R;else if(q===c)pos.z=w.z1-R;else pos.z=w.z2+R;}}}
   if(me.userData.kneel&&you.visible)face=Math.atan2(you.position.x-pos.x,you.position.z-pos.z);
-  me.position.set(pos.x,me.userData.kneel?-.4:0,pos.z);me.rotation.y=face;walkAnim(me,moving,t);
+  me.position.set(pos.x,me.userData.kneel?-.4:(me.userData.emote==='dance'?Math.abs(Math.sin(t*6))*.3:0),pos.z);me.rotation.y=face;walkAnim(me,moving,t);
 
   if(you.visible){
     you.position.x+=(remote.x-you.position.x)*Math.min(1,dt*10);
     you.position.z+=(remote.z-you.position.z)*Math.min(1,dt*10);
     let d=remote.r-you.rotation.y;d=Math.atan2(Math.sin(d),Math.cos(d));you.rotation.y+=d*Math.min(1,dt*10);
-    you.position.y=you.userData.kneel?-.4:0;walkAnim(you,remote.m,t);
+    you.position.y=you.userData.kneel?-.4:(you.userData.emote==='dance'?Math.abs(Math.sin(t*6))*.3:0);walkAnim(you,remote.m,t);
   }
   sendT+=dt;
-  if(sendT>.066&&conn&&conn.open){sendT=0;conn.send({t:'p',x:pos.x,z:pos.z,r:face,m:moving,k:!!me.userData.kneel});}
+  if(sendT>.066&&conn&&conn.open){sendT=0;conn.send({t:'p',x:pos.x,z:pos.z,r:face,m:moving,k:!!me.userData.kneel,e:me.userData.emote||0});}
 
   nearG=null;let nd=4.5;
   for(const k in GAMES){const d=Math.hypot(pos.x-GAMES[k].x,pos.z-GAMES[k].z);if(d<nd){nd=d;nearG=k;}}
@@ -485,7 +489,14 @@ function loop(ms){
   if(cur&&Math.hypot(pos.x-GAMES[cur].x,pos.z-GAMES[cur].z)>8){cur=null;render();}
   for(let i=fx.length-1;i>=0;i--){const f=fx[i];f.life-=dt;f.s.position.x+=f.vx*dt;f.s.position.y+=f.vy*dt;f.s.position.z+=f.vz*dt;f.s.material.opacity=Math.min(1,f.life);
     if(f.life<=0){scene.remove(f.s);f.s.material.dispose();fx.splice(i,1);}}
-  if(me.userData.kneel&&(heartT-=dt)<0){heartT=.25;burst(me,1,.8);if(you.visible)burst(you,1,.8);}
+  if((me.userData.kneel||me.userData.emote==='dance')&&(heartT-=dt)<0){heartT=.25;burst(me,1,.8);if(you.visible)burst(you,1,.8);}
+  for(const a of amb){
+    if(a.reset||Math.hypot(a.x-pos.x,a.z-pos.z)>26){a.x=pos.x+(Math.random()-.5)*44;a.z=pos.z+(Math.random()-.5)*44;a.y=a.petal?7+Math.random()*5:.6+Math.random()*6;a.reset=0;}
+    if(a.petal){a.y-=a.sp*dt*1.1;a.x+=Math.sin(t*.8+a.ph)*dt*.9;a.z+=Math.cos(t*.6+a.ph)*dt*.5;if(a.y<0)a.reset=1;a.s.material.rotation=t*.8+a.ph;}
+    else{a.y+=Math.sin(t*.9+a.ph)*dt*.25;a.x+=Math.cos(t*.5+a.ph)*dt*.3;a.s.material.opacity=.25+.55*Math.abs(Math.sin(t*1.6+a.ph));}
+    a.s.position.set(a.x,a.y,a.z);a.s.visible=a.petal?pos.z>13:true;
+  }
+  trailT-=dt;if(trailT<0){trailT=.4;if(moving)trail(me);if(you.visible&&remote.m)trail(you);}
   spinners.forEach((m,i)=>{m.rotation.y=t*(.6+i*.2);m.rotation.x=t*.3;});
   star.rotation.y=t*.8;star.rotation.x=t*.4;star.position.y=5.5+Math.sin(t*1.5)*.15;
   camera.position.set(pos.x+Math.sin(camYaw)*6.5,4.2,pos.z+Math.cos(camYaw)*6.5);
@@ -494,8 +505,8 @@ function loop(ms){
 }
 
 /* ---------- love & proposal ---------- */
-const fx=[],heartTex=['❤️','💖','💗','💞','💍','✨'].map(e=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.font='46px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(e,32,36);return new THREE.CanvasTexture(c);});
-let heartT=0,asking=false;
+const fx=[],heartTex=['❤️','💖','💗','💞','💕','✨'].map(e=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.font='46px serif';g.textAlign='center';g.textBaseline='middle';g.fillText(e,32,36);return new THREE.CanvasTexture(c);});
+let heartT=0,trailT=0,asking=false;
 function burst(ch,n,spread=1){
   for(let i=0;i<n;i++){
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:heartTex[Math.random()*heartTex.length|0],transparent:true,depthTest:false}));
@@ -510,25 +521,36 @@ function love(){chatLine(role,'I love you ❤️');burst(me,18);if(conn&&conn.op
 function propose(){
   if(me.userData.kneel||asking)return;
   me.userData.kneel=true;asking=true;
-  chatLine(role,'Will you marry me? 💍');
-  if(conn&&conn.open){conn.send({t:'prop'});showAsk(`<div class="msg">💍 Waiting for ${NAMES[other(role)]} to answer…</div>`);}
-  else{showAsk('<div class="msg">💍 Practice mode: your partner is not here, they will say yes in 4 seconds…</div>');setTimeout(()=>result(true,role),4000);}
+  chatLine(role,'I like you so much 💖');
+  if(conn&&conn.open){conn.send({t:'prop'});showAsk(`<div class="msg">💖 Waiting for ${NAMES[other(role)]} to reply…</div>`);}
+  else{showAsk('<div class="msg">💖 Practice mode: your partner is not here, the reply comes in 4 seconds…</div>');setTimeout(()=>result(true,role),4000);}
 }
 function onProposed(){
   if(asking)return;asking=true;
-  const o=other(role);chatLine(o,'Will you marry me? 💍');
-  showAsk(`<h2>💍 ${NAMES[o]} is kneeling…</h2><div class="msg">Will you marry me?</div><div class="row"><button id="yes">Yes! 💖</button><button id="no">Not yet 😅</button></div>`);
+  const o=other(role);chatLine(o,'I like you so much 💖');
+  showAsk(`<h2>💖 ${NAMES[o]} has something to say…</h2><div class="msg">I like you so much!</div><div class="row"><button id="yes">Me too! 💖</button></div>`);
   $('yes').onclick=()=>{if(conn&&conn.open)conn.send({t:'ans',y:1});result(true,o);};
-  $('no').onclick=()=>{if(conn&&conn.open)conn.send({t:'ans',y:0});result(false,o);};
 }
 function result(yes,proposer){
   asking=false;
   const pc=proposer===role?me:you,ac=proposer===role?you:me,a=other(proposer);
-  if(yes){burst(pc,40,3);burst(ac,40,3);chatLine(a,'YES! 💖');showAsk(`<h2>💖 ${NAMES[a]} said YES! 💖</h2><div class="msg">Congratulations, Ammar & Shafa! 💍</div>`);}
+  if(yes){burst(pc,40,3);burst(ac,40,3);chatLine(a,'Me too! 💖');showAsk(`<h2>💖 ${NAMES[a]} likes you too! 💖</h2><div class="msg">Ammar & Shafa 💕</div>`);}
   else showAsk(`<div class="msg">💙 ${NAMES[a]} needs a little more time… maybe next time!</div>`);
   setTimeout(()=>{if(proposer===role)me.userData.kneel=false;if(!asking)hideAsk();},yes?6500:4500);
 }
 $('bLove').onclick=love;$('bProp').onclick=propose;
+function emote(n){
+  const u=me.userData;u.emote=u.emote===n?null:n;
+  if(u.emote==='wave')setTimeout(()=>{if(u.emote==='wave')u.emote=null;},3500);
+}
+$('bDance').onclick=()=>emote('dance');$('bWave').onclick=()=>emote('wave');
+function trail(ch){const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:heartTex[(Math.random()*3)|0],transparent:true,depthTest:false}));sp.scale.set(.32,.32,1);sp.position.set(ch.position.x,.4,ch.position.z);scene.add(sp);fx.push({s:sp,vx:0,vy:.7,vz:0,life:1.3});}
+// ambient rose petals (outside) and twinkling fireflies (everywhere)
+const petalTex=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d');g.fillStyle='#ffb3d1';g.beginPath();g.ellipse(16,16,6,11,.6,0,7);g.fill();return new THREE.CanvasTexture(c);})();
+const sparkTex=(()=>{const c=document.createElement('canvas');c.width=c.height=32;const g=c.getContext('2d'),r=g.createRadialGradient(16,16,0,16,16,16);r.addColorStop(0,'rgba(255,245,200,1)');r.addColorStop(1,'rgba(255,220,150,0)');g.fillStyle=r;g.fillRect(0,0,32,32);return new THREE.CanvasTexture(c);})();
+const amb=[];
+for(let i=0;i<70;i++){const petal=i%3!==0,sp=new THREE.Sprite(new THREE.SpriteMaterial({map:petal?petalTex:sparkTex,transparent:true,opacity:petal?.9:.6,depthWrite:false}));
+  sp.scale.setScalar(petal?.35:.45);scene.add(sp);amb.push({s:sp,ph:Math.random()*6.28,sp:.5+Math.random()*.8,petal,x:0,y:0,z:0,reset:1});}
 
 /* ---------- networking (PeerJS / WebRTC, no server needed) ---------- */
 function setStatus(t){$('status').textContent=t;}
@@ -536,7 +558,7 @@ function wire(c){
   conn=c;
   c.on('open',()=>{you.visible=true;you.position.set(remote.x,0,remote.z);log(`<i>${NAMES[other(role)]} joined the museum!</i>`);});
   c.on('data',d=>{
-    if(d.t==='p'){remote.x=d.x;remote.z=d.z;remote.r=d.r;remote.m=d.m;you.userData.kneel=!!d.k;}
+    if(d.t==='p'){remote.x=d.x;remote.z=d.z;remote.r=d.r;remote.m=d.m;you.userData.kneel=!!d.k;you.userData.emote=d.e||null;}
     else if(d.t==='chat')chatLine(other(role),String(d.m).slice(0,120));
     else if(d.t==='love'){chatLine(other(role),'I love you ❤️');burst(you,18);}
     else if(d.t==='prop')onProposed();
